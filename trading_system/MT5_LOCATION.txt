@@ -1,0 +1,33 @@
+MetaTrader 5 Terminal Location:
+================================
+
+Full Path: C:\Program Files\XM Global MT5\terminal64.exe
+
+Installation Directory: C:\Program Files\XM Global MT5
+
+Status: ✅ MT5 is currently RUNNING (Process ID: 39652)
+
+
+To create a desktop shortcut:
+1. Right-click on desktop
+2. New → Shortcut
+3. Enter: "C:\Program Files\XM Global MT5\terminal64.exe"
+4. Name it: "XM MT5"
+
+
+To add to Startup folder:
+1. Press Win + R
+2. Type: shell:startup
+3. Press Enter
+4. Create a shortcut to: C:\Program Files\XM Global MT5\terminal64.exe
+
+
+To verify MT5 is logged in:
+- Check the bottom right of MT5 terminal
+- Should show "Connected" or your account number
+- If not connected, click "File → Login to Trade Account"
+- Enter your credentials:
+  - Login: 334467853
+  - Password: Bikojr13!#
+  - Server: XMGlobal-MT5 9
+

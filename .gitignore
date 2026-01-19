@@ -1,0 +1,86 @@
+# Configuration (may contain sensitive data - API keys, tokens)
+config.yaml
+trading_system/config.yaml
+*.yaml.local
+*.yml.local
+
+# Database files
+data/
+*.db
+*.sqlite
+*.sqlite3
+trading_system/data/
+
+# Logs
+logs/
+*.log
+backtest.log
+trading_system/logs/
+
+# Results (generated files)
+results/
+
+# Data files (large, can be re-downloaded)
+*.zip
+*.csv
+DAT_ASCII_*.zip
+data/histdata/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+.dockerignore
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Data summary files (generated)
+data_summary.txt
+

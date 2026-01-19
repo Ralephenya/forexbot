@@ -1,0 +1,247 @@
+"""
+Strategy B: Regime-switching strategy implementation
+"""
+import pandas as pd
+import numpy as np
+import logging
+from datetime import datetime
+from typing import Dict, Optional
+from indicators import calculate_all_indicators
+
+logger = logging.getLogger(__name__)
+
+
+class StrategyB:
+    """Strategy B: Regime-switching mean reversion/breakout"""
+    
+    def __init__(self, config: dict):
+        """
+        Initialize strategy
+        
+        Args:
+            config: Strategy configuration dictionary
+        """
+        self.config = config
+        self.strategy_config = config.get('strategy', {})
+        self.data_config = config.get('data', {})
+    
+    def apply_time_filter(self, current_hour: int) -> bool:
+        """
+        Check if current hour is optimal for trading
+        
+        Args:
+            current_hour: Current UTC hour (0-23)
+            
+        Returns:
+            True if hour is optimal
+        """
+        allowed_hours = self.strategy_config.get('allowed_hours', [])
+        blocked_hours = self.strategy_config.get('blocked_hours', [])
+        
+        if current_hour in blocked_hours:
+            return False
+        
+        if allowed_hours:
+            return current_hour in allowed_hours
+        
+        return True
+    
+    def calculate_targets_stops(
+        self,
+        entry_price: float,
+        direction: str,
+        atr: float,
+        is_high_volatility: bool
+    ) -> Dict[str, float]:
+        """
+        Calculate adaptive take profit and stop loss
+        
+        Args:
+            entry_price: Entry price
+            direction: 'BUY' or 'SELL'
+            atr: Current ATR value
+            is_high_volatility: Volatility regime flag
+            
+        Returns:
+            Dictionary with target_pips and stop_pips
+        """
+        # Get multipliers from config
+        if is_high_volatility:
+            target_multiplier = self.strategy_config.get('high_vol_tp_multiplier', 1.5)
+            stop_multiplier = self.strategy_config.get('high_vol_sl_multiplier', 1.0)
+        else:
+            target_multiplier = self.strategy_config.get('low_vol_tp_multiplier', 2.0)
+            stop_multiplier = self.strategy_config.get('low_vol_sl_multiplier', 1.0)
+        
+        # Calculate pips (for EUR/USD, 1 pip = 0.0001)
+        # ATR is in price units, convert to pips
+        atr_pips = (atr / entry_price) * 10000
+        
+        target_pips = atr_pips * target_multiplier
+        stop_pips = atr_pips * stop_multiplier
+        
+        return {
+            'target_pips': target_pips,
+            'stop_pips': stop_pips
+        }
+    
+    def calculate_tp_sl_prices(
+        self,
+        entry_price: float,
+        direction: str,
+        target_pips: float,
+        stop_pips: float
+    ) -> Dict[str, float]:
+        """
+        Convert pips to price levels
+        
+        Args:
+            entry_price: Entry price
+            direction: 'BUY' or 'SELL'
+            target_pips: Target in pips
+            stop_pips: Stop loss in pips
+            
+        Returns:
+            Dictionary with take_profit and stop_loss prices
+        """
+        pip_value = 0.0001  # For EUR/USD
+        
+        if direction.upper() == "BUY":
+            take_profit = entry_price + (target_pips * pip_value)
+            stop_loss = entry_price - (stop_pips * pip_value)
+        else:  # SELL
+            take_profit = entry_price - (target_pips * pip_value)
+            stop_loss = entry_price + (stop_pips * pip_value)
+        
+        return {
+            'take_profit': round(take_profit, 5),
+            'stop_loss': round(stop_loss, 5)
+        }
+    
+    def generate_signal(self, df: pd.DataFrame) -> Optional[Dict]:
+        """
+        Generate trading signal based on Strategy B logic
+        
+        Args:
+            df: DataFrame with OHLCV and indicator data
+            
+        Returns:
+            Signal dictionary or None
+        """
+        if df.empty or len(df) < 2:
+            return None
+        
+        # Get latest row
+        latest = df.iloc[-1]
+        prev = df.iloc[-2] if len(df) > 1 else latest
+        
+        # Check for required indicators
+        required_cols = ['rsi', 'atr', 'ema', 'is_high_volatility', 'close']
+        if not all(col in df.columns for col in required_cols):
+            logger.warning("Missing required indicators, calculating...")
+            df = calculate_all_indicators(
+                df,
+                rsi_period=self.strategy_config.get('rsi_period', 14),
+                atr_period=self.strategy_config.get('atr_period', 14),
+                ema_period=self.strategy_config.get('ema_period', 20),
+                atr_median_window=self.strategy_config.get('atr_median_window', 20)
+            )
+            latest = df.iloc[-1]
+        
+        # Check for NaN values
+        if pd.isna(latest['rsi']) or pd.isna(latest['atr']) or pd.isna(latest['ema']):
+            logger.debug("Insufficient data for signal generation")
+            return None
+        
+        # Get current time
+        current_hour = datetime.utcnow().hour
+        
+        # Apply time filter
+        if not self.apply_time_filter(current_hour):
+            logger.debug(f"Hour {current_hour} not optimal for trading")
+            return None
+        
+        # Extract values
+        rsi = latest['rsi']
+        close = latest['close']
+        ema = latest['ema']
+        atr = latest['atr']
+        is_high_vol = latest['is_high_volatility']
+        
+        # Get thresholds
+        rsi_buy_threshold = self.strategy_config.get('rsi_oversold', 30)
+        rsi_sell_threshold = self.strategy_config.get('rsi_overbought', 70)
+        
+        # Strategy B Logic
+        buy_signal = False
+        sell_signal = False
+        
+        if is_high_vol:
+            # High Volatility: Mean Reversion
+            buy_signal = rsi <= rsi_buy_threshold
+            sell_signal = rsi >= rsi_sell_threshold
+        else:
+            # Low Volatility: Breakout
+            buy_signal = close > ema
+            sell_signal = close < ema
+        
+        # Generate signal
+        if buy_signal:
+            direction = "BUY"
+            entry_price = close
+            
+            # Calculate TP/SL
+            targets = self.calculate_targets_stops(entry_price, direction, atr, is_high_vol)
+            prices = self.calculate_tp_sl_prices(
+                entry_price, direction,
+                targets['target_pips'],
+                targets['stop_pips']
+            )
+            
+            return {
+                'action': 'BUY',
+                'direction': direction,
+                'entry_price': entry_price,
+                'target_pips': targets['target_pips'],
+                'stop_pips': targets['stop_pips'],
+                'take_profit': prices['take_profit'],
+                'stop_loss': prices['stop_loss'],
+                'rsi': rsi,
+                'atr': atr,
+                'volatility_regime': 'HIGH' if is_high_vol else 'LOW',
+                'timestamp': latest.name if hasattr(latest, 'name') else datetime.utcnow()
+            }
+        
+        elif sell_signal:
+            direction = "SELL"
+            entry_price = close
+            
+            # Calculate TP/SL
+            targets = self.calculate_targets_stops(entry_price, direction, atr, is_high_vol)
+            prices = self.calculate_tp_sl_prices(
+                entry_price, direction,
+                targets['target_pips'],
+                targets['stop_pips']
+            )
+            
+            return {
+                'action': 'SELL',
+                'direction': direction,
+                'entry_price': entry_price,
+                'target_pips': targets['target_pips'],
+                'stop_pips': targets['stop_pips'],
+                'take_profit': prices['take_profit'],
+                'stop_loss': prices['stop_loss'],
+                'rsi': rsi,
+                'atr': atr,
+                'volatility_regime': 'HIGH' if is_high_vol else 'LOW',
+                'timestamp': latest.name if hasattr(latest, 'name') else datetime.utcnow()
+            }
+        
+        return None
+
+
+
+
+
+

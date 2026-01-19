@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  trading_system:
+    build: .
+    container_name: trading_system
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - TZ=UTC
+    networks:
+      - trading_net
+
+networks:
+  trading_net:
+    driver: bridge
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
