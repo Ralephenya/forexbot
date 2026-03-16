@@ -1,7 +1,6 @@
-# ForexBot Mobile App — Full Cloud Setup
+# ForexBot Mobile App — Serverless Setup
 
-No PC needed. Everything runs on AWS EC2 24/7.
-Your iPhone SE connects directly to the cloud server.
+Fully serverless. No EC2. No idle costs. Runs 24/7 for free on AWS.
 
 ---
 
@@ -10,117 +9,101 @@ Your iPhone SE connects directly to the cloud server.
 ```
 iPhone SE
     │
-    │  (internet — any connection: WiFi, 4G, 5G)
+    │ (internet — WiFi, 4G, 5G, anywhere)
     │
-AWS EC2 (Linux t2.micro — always on)
-    ├── FastAPI backend  (port 8000)
-    └── Trading bot      (runs strategy every 15 min)
-            │
-        MetaAPI Cloud
-            │
-        XM Broker (your MT5 account)
+API Gateway ──► Lambda (FastAPI/Mangum)
+                    ├── reads/writes S3  (trade history)
+                    └── calls MetaAPI    (live prices, place/close trades)
+
+EventBridge (every 15 min)
+    └──► Lambda (Trading Bot)
+              ├── fetches candles via MetaAPI
+              ├── runs Strategy B (RSI + ATR + EMA)
+              ├── places trade via MetaAPI → XM broker
+              └── writes result to S3
 ```
+
+**Cost:** ~$0/month (Lambda + S3 both have generous free tiers)
 
 ---
 
-## What the app can do
+## What the app does
 
-| Tab | What you can do |
-|-----|----------------|
-| **Dashboard** | Live account balance, equity, free margin, open positions with live P&L |
-| **Trade ⚡** | Place BUY/SELL trades on 10 pairs, set TP/SL, pick lot size |
-| **History** | All trades, tap any open trade → **Close at market** |
-| **Stats** | 30-day performance, bar charts |
-| **Settings** | Enter EC2 IP, test connection |
+| Tab | Features |
+|-----|---------|
+| **Dashboard** | Live XM balance, equity, free margin, open positions with real P&L — refreshes every 10s |
+| **⚡ Trade** | Place BUY/SELL on 10 pairs — live bid/ask prices every 5s, pick lot size, set TP/SL |
+| **History** | All trades — tap any open trade to close it at market |
+| **Stats** | 30-day P&L bar chart, win rate, winning/losing days |
+| **Settings** | Paste API Gateway URL, test connection |
+
+---
+
+## Prerequisites (one-time installs on your computer)
+
+```bash
+# 1. AWS CLI
+# Download from https://aws.amazon.com/cli/
+
+# 2. AWS SAM CLI
+# Download from https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
+
+# 3. Docker (needed to build Lambda images)
+# Download from https://docs.docker.com/get-docker/
+
+# 4. Configure AWS credentials
+aws configure
+# Enter your AWS Access Key ID, Secret Key, region (e.g. us-east-1)
+```
 
 ---
 
 ## Step 1 — Register MetaAPI (free)
 
-MetaAPI connects your existing XM account to the cloud without installing MT5.
+MetaAPI connects your existing XM MT5 account to the cloud.
 
-1. Go to **https://app.metaapi.cloud** and create a free account
-2. Click **"MT Accounts"** → **"Add Account"**
-3. Enter your XM credentials:
+1. Go to **https://app.metaapi.cloud** → create free account
+2. **MT Accounts** → **Add Account** → enter XM credentials:
    - Login (account number)
    - Password
    - Server (e.g. `XMTrading-Demo` or `XMTrading-Real`)
-4. Wait ~1 minute for it to connect — you'll see a green dot
-5. Copy your **Account ID** (shown on the account card)
-6. Go to **"API Access"** → copy your **API Token**
-
-Keep both values — you'll need them in Step 3.
+3. Wait ~1 minute for the green dot
+4. Copy your **Account ID** (shown on the account card)
+5. Go to **API Access** → copy your **API Token**
 
 ---
 
-## Step 2 — Launch an AWS EC2 instance
+## Step 2 — Deploy to AWS
 
-1. Log into your AWS console → **EC2** → **Launch Instance**
-2. Settings:
-   - **Name**: forexbot
-   - **AMI**: Ubuntu Server 22.04 LTS
-   - **Instance type**: t2.micro (free tier eligible)
-   - **Key pair**: Create or use existing (you'll need the .pem file)
-   - **Security group**: Allow inbound **SSH (22)** and **Custom TCP 8000**
-3. Launch the instance
-4. Note the **Public IPv4 address** (e.g. `54.123.45.67`)
+```bash
+cd forexbot
+./deploy/deploy_sam.sh
+```
+
+The script:
+1. Asks for your MetaAPI token, account ID, symbol, lot size
+2. Builds a Docker image with all dependencies
+3. Pushes it to Amazon ECR
+4. Deploys Lambda + API Gateway + S3 + EventBridge via CloudFormation
+5. Prints your API URL when done
+
+**Takes about 5-10 minutes the first time.**
+
+Example output:
+```
+  API URL:   https://abc123xyz.execute-api.us-east-1.amazonaws.com
+  S3 Bucket: forexbot-trades-123456789
+```
 
 ---
 
-## Step 3 — Deploy ForexBot on EC2
+## Step 3 — Mobile app
 
-SSH into your EC2 instance:
+**Install Expo Go** from the App Store on your iPhone SE (free).
+
+On your computer:
 ```bash
-ssh -i your-key.pem ubuntu@54.123.45.67
-```
-
-Run the setup script (copy these commands one by one):
-```bash
-# 1. Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker ubuntu
-newgrp docker
-
-# 2. Copy your forexbot folder to EC2 (run this on YOUR computer, not EC2):
-#    scp -i your-key.pem -r ./forexbot ubuntu@54.123.45.67:~/
-
-# 3. Back on EC2 — enter the forexbot folder
-cd ~/forexbot
-
-# 4. Create your .env file
-cp .env.example .env
-nano .env
-```
-
-In the nano editor, fill in:
-```
-METAAPI_TOKEN=paste_your_token_here
-METAAPI_ACCOUNT_ID=paste_your_account_id_here
-DEMO_MODE=true
-```
-Save: `Ctrl+X` → `Y` → `Enter`
-
-```bash
-# 5. Start everything
-docker compose up -d --build
-
-# 6. Check it's working
-docker compose logs -f
-```
-
-You should see `Application startup complete` in the logs.
-
-Test the API in your browser: `http://54.123.45.67:8000/health`
-You should see: `{"status":"ok","metaapi_configured":true}`
-
----
-
-## Step 4 — Install the mobile app on your iPhone SE
-
-**Install Expo Go** from the App Store (free).
-
-On your computer, in the `forexbot/mobile` folder:
-```bash
+cd forexbot/mobile
 npm install
 npx expo start
 ```
@@ -129,55 +112,69 @@ Scan the QR code with your iPhone camera → tap the banner → ForexBot opens.
 
 ---
 
-## Step 5 — Connect the app to your EC2
+## Step 4 — Connect app to AWS
 
-1. Tap **Settings** (bottom right)
-2. Enter: `http://54.123.45.67:8000`  ← your EC2 public IP
+1. Tap **Settings** in the app
+2. Paste your API Gateway URL: `https://abc123xyz.execute-api.us-east-1.amazonaws.com`
 3. Tap **SAVE** → **TEST CONNECTION**
-4. You should see "Connected! MetaAPI configured: true"
+4. Should show: "Connected! MetaAPI configured: true, storage: s3"
 
-You're live. The app works on any internet connection now — WiFi, 4G, 5G.
-
----
-
-## Placing a trade
-
-1. Tap the **⚡ Trade** tab
-2. Select instrument (EURUSD, GBPUSD, etc.)
-3. Tap **BUY** or **SELL**
-4. Pick your lot size (0.01 = micro lot = ~$0.10/pip)
-5. Optionally set Take Profit / Stop Loss
-6. Tap the big **BUY / SELL** button
-7. Confirm → trade is live
+The app now works from anywhere — any WiFi, 4G, 5G. No home network needed.
 
 ---
 
-## Closing a trade
+## How the bot works (fully automated)
 
-1. Tap **History** tab
-2. Filter by **OPEN**
-3. Tap the trade card
-4. Scroll down → tap **Close Position at Market**
-5. Confirm
+EventBridge fires the bot Lambda every 15 minutes. Each run:
+
+1. Checks kill switch in S3 — if ON, skips
+2. Syncs open positions with MetaAPI (catches TP/SL hits since last run)
+3. If no open position: fetches 100 × 15-min candles
+4. Calculates RSI(14), ATR(14), EMA(20), volatility regime
+5. Strategy B decision:
+   - **High volatility** → Mean reversion: BUY if RSI≤30, SELL if RSI≥70
+   - **Low volatility** → Breakout: BUY if Close>EMA, SELL if Close<EMA
+6. Places trade via MetaAPI → XM broker
+7. Records trade in S3
+
+The bot only runs during allowed hours (9, 10, 12, 14 UTC — London session).
 
 ---
 
-## Stopping the bot
+## Useful commands
 
-On **Dashboard** → tap **■ STOP BOT**
-This sets a kill switch flag in the database. The bot stops placing new trades.
-Tap **▶ RESUME BOT** to re-enable.
+```bash
+# Watch live bot logs
+sam logs -n BotFunction --stack-name forexbot --tail
+
+# Watch API logs
+sam logs -n ApiFunction --stack-name forexbot --tail
+
+# Manually trigger the bot (for testing)
+aws lambda invoke \
+  --function-name $(aws cloudformation describe-stacks \
+    --stack-name forexbot \
+    --query "Stacks[0].Outputs[?OutputKey=='BotFunctionArn'].OutputValue" \
+    --output text) \
+  --payload '{"action":"status"}' \
+  response.json && cat response.json
+
+# View trade data in S3
+aws s3 cp s3://forexbot-trades-YOURACCOUNTID/trades.json - | python -m json.tool
+
+# Remove everything from AWS
+sam delete --stack-name forexbot
+```
 
 ---
 
-## Keeping EC2 costs low
+## Updating the bot
 
-| Instance | Cost | Suitable for |
-|----------|------|-------------|
-| t2.micro | Free (first 12 months) | Perfect for running the bot |
-| t3.micro | ~$8/month after free tier | Same performance |
-
-The API + bot together use less than 200MB RAM, well within t2.micro limits.
+After changing code:
+```bash
+./deploy/deploy_sam.sh   # re-runs the full deploy
+```
+SAM only rebuilds what changed.
 
 ---
 
@@ -185,11 +182,25 @@ The API + bot together use less than 200MB RAM, well within t2.micro limits.
 
 | Problem | Fix |
 |---------|-----|
-| "Cannot reach API" | Check the EC2 IP in Settings, make sure port 8000 is open in AWS Security Group |
-| "MetaAPI not configured" | Check your .env file on EC2 has the right token and account ID |
-| Trade fails | Check MetaAPI dashboard — account may need to resync |
-| Bot not trading | Check `docker compose logs bot` on EC2 |
-| Port 8000 blocked | EC2 → Security Groups → add Inbound rule: Custom TCP 8000 0.0.0.0/0 |
+| "MetaAPI not configured" | Re-run deploy with correct credentials |
+| Bot not trading | Check `sam logs -n BotFunction` — might be kill switch or no signal |
+| App can't connect | Make sure you pasted the full HTTPS URL (not HTTP) from the deploy output |
+| "Trade failed" | Check MetaAPI dashboard — account may have synced out |
+| Deploy fails | Make sure Docker is running and `aws configure` is set up |
+
+---
+
+## Cost breakdown
+
+| Service | Free tier | Our usage | Cost |
+|---------|-----------|-----------|------|
+| Lambda | 1M requests/month, 400K GB-seconds | ~3K requests/month | **$0** |
+| API Gateway | 1M requests/month | ~1K requests/month | **$0** |
+| S3 | 5GB storage, 20K GET, 2K PUT | <1MB storage, ~100 PUTs | **$0** |
+| EventBridge | 14M events/month | ~2K events/month | **$0** |
+| ECR (Docker image) | 500MB/month | ~200MB image | **$0** |
+
+**Total: $0/month** (well within free tier forever for this workload)
 
 ---
 
@@ -197,26 +208,19 @@ The API + bot together use less than 200MB RAM, well within t2.micro limits.
 
 ```
 forexbot/
-├── api/
-│   ├── main.py              ← FastAPI (trade placement, live prices, history)
+├── serverless/
+│   ├── s3_store.py        ← S3 data layer (replaces SQLite)
+│   ├── bot_handler.py     ← Bot Lambda (EventBridge trigger)
+│   ├── api_handler.py     ← API Lambda (API Gateway + Mangum)
 │   └── requirements.txt
 ├── trading_system/
-│   ├── metaapi_client.py    ← MetaAPI client (replaces MT5Client)
-│   ├── main.py              ← Trading bot (updated to use MetaAPI)
-│   └── ...
+│   ├── metaapi_client.py  ← MetaAPI REST client
+│   ├── strategy.py        ← Strategy B logic
+│   └── indicators.py      ← RSI, ATR, EMA calculations
 ├── mobile/
-│   ├── App.js               ← 5-tab navigation
-│   └── src/
-│       ├── screens/
-│       │   ├── DashboardScreen.js   ← Live balance + positions
-│       │   ├── PlaceTradeScreen.js  ← Place BUY/SELL trades
-│       │   ├── TradesScreen.js      ← History + close trades
-│       │   ├── StatsScreen.js       ← Charts
-│       │   └── SettingsScreen.js    ← API URL config
-│       └── api/client.js    ← All API calls
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example             ← Copy to .env, fill in credentials
+│   └── src/screens/       ← 5-tab React Native app
+├── template.yaml          ← AWS SAM template
+├── Dockerfile.lambda      ← Lambda container image
 └── deploy/
-    └── setup_ec2.sh         ← EC2 bootstrap script
+    └── deploy_sam.sh      ← One-command deployment
 ```

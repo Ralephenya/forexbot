@@ -67,17 +67,20 @@ export default function SettingsScreen() {
       <Text style={styles.sectionLabel}>API SERVER</Text>
       <View style={styles.card}>
         <Text style={styles.helpText}>
-          Enter the IP address of the computer running the ForexBot API.
-          {'\n'}Make sure both devices are on the same WiFi network.
-          {'\n\n'}Find your computer's IP:
-          {'\n'}• Windows: run <Text style={styles.code}>ipconfig</Text>
-          {'\n'}• Mac/Linux: run <Text style={styles.code}>ifconfig</Text>
+          After deploying with SAM, paste your API Gateway URL here.
+          {'\n\n'}It looks like:{'\n'}
+          <Text style={styles.code}>https://xxxxxx.execute-api.us-east-1.amazonaws.com</Text>
+          {'\n\n'}Find it in the terminal output after{' '}
+          <Text style={styles.code}>./deploy/deploy_sam.sh</Text>
+          {', '}or in the AWS Console → CloudFormation → forexbot → Outputs → ApiUrl.
+          {'\n\n'}For local testing (same WiFi):{'\n'}
+          <Text style={styles.code}>http://192.168.1.x:8000</Text>
         </Text>
         <TextInput
           style={styles.input}
           value={url}
           onChangeText={setUrl}
-          placeholder="http://192.168.1.100:8000"
+          placeholder="https://xxxxxx.execute-api.us-east-1.amazonaws.com"
           placeholderTextColor={COLORS.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -119,20 +122,22 @@ export default function SettingsScreen() {
         <Row label="API URL" value={saved} valueColor={COLORS.accent} />
       </View>
 
-      {/* How to run the API */}
-      <Text style={styles.sectionLabel}>HOW TO START THE API</Text>
+      {/* How to deploy */}
+      <Text style={styles.sectionLabel}>HOW TO DEPLOY (ONE TIME)</Text>
       <View style={styles.card}>
         <Text style={styles.helpText}>
-          On your computer, open a terminal in the forexbot folder and run:
+          Prerequisites: AWS CLI, SAM CLI, Docker installed on your computer.
         </Text>
         <View style={styles.codeBlock}>
           <Text style={styles.codeBlockText}>
-            {'cd forexbot\npip install -r api/requirements.txt\npython -m uvicorn api.main:app --host 0.0.0.0 --port 8000'}
+            {'cd forexbot\n./deploy/deploy_sam.sh'}
           </Text>
         </View>
         <Text style={styles.helpText}>
-          Keep this terminal open while using the app.
-          {'\n'}The API will auto-restart when the trading bot updates the database.
+          The script asks for your MetaAPI credentials and deploys everything to AWS automatically.
+          {'\n\n'}After ~5 minutes it prints your API URL — paste it above.
+          {'\n\n'}Cost: effectively $0 (Lambda free tier = 1M requests/month,
+          S3 free tier = 5GB storage). The bot runs 24/7 for free.
         </Text>
       </View>
 
