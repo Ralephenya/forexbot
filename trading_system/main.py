@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from logger import setup_logger
 from database import Database
-from mt5_client import MT5Client
 from data_feed import DataFeed
 from indicators import calculate_all_indicators
 from strategy import StrategyB
@@ -92,14 +91,11 @@ def main():
         # Database
         db = Database(config['database']['path'])
         
-        # Broker client (MT5)
-        mt5_config = config['mt5']
-        broker = MT5Client(
-            account=mt5_config['account'],
-            password=mt5_config['password'],
-            server=mt5_config['server'],
-            path=mt5_config.get('path', '')
-        )
+        # Broker client — MetaAPI (cloud, no MT5 install needed)
+        # Reads METAAPI_TOKEN and METAAPI_ACCOUNT_ID from environment variables.
+        # Set these in your .env file or docker-compose.yml.
+        from metaapi_client import MetaApiClient
+        broker = MetaApiClient()
         
         # Data feed
         data_config = config['data']

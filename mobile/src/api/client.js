@@ -1,14 +1,12 @@
 /**
  * API client for ForexBot backend
- * Change API_BASE_URL to your computer's local IP address
- * e.g. http://192.168.1.100:8000
  *
- * To find your IP: run `ipconfig` on Windows or `ifconfig` on Mac/Linux
+ * In Settings, enter your EC2 public IP: http://54.x.x.x:8000
+ * (or your computer's local IP for local testing: http://192.168.1.x:8000)
  */
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Default URL — user changes this in Settings screen
 const DEFAULT_API_URL = 'http://192.168.1.100:8000';
 const API_URL_KEY = '@forexbot_api_url';
 
@@ -23,7 +21,7 @@ export async function loadApiUrl() {
 }
 
 export async function saveApiUrl(url) {
-  _baseURL = url.replace(/\/$/, ''); // strip trailing slash
+  _baseURL = url.replace(/\/$/, '');
   await AsyncStorage.setItem(API_URL_KEY, _baseURL);
 }
 
@@ -34,33 +32,40 @@ export function getApiUrl() {
 function client() {
   return axios.create({
     baseURL: _baseURL,
-    timeout: 10000,
+    timeout: 15000,
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
 export const api = {
-  /** Health check — used to test connectivity */
+  // ---- Health & config ----
   health: () => client().get('/health'),
 
-  /** Dashboard summary */
+  // ---- Dashboard summary (SQLite) ----
   account: () => client().get('/account'),
 
-  /** All trades with optional filters */
+  // ---- Live broker data (MetaAPI → XM) ----
+  liveAccount: () => client().get('/live/account'),
+  livePositions: () => client().get('/live/positions'),
+  livePrice: (instrument) => client().get(`/live/price/${instrument}`),
+  livePrices: (instruments = 'EURUSD,GBPUSD,USDJPY') =>
+    client().get('/live/prices', { params: { instruments } }),
+
+  // ---- Trade execution ----
+  placeTrade: (body) => client().post('/live/trade', body),
+  closeTrade: (positionId) => client().delete(`/live/trade/${positionId}`),
+
+  // ---- Trade history (SQLite) ----
   trades: (params = {}) => client().get('/trades', { params }),
-
-  /** Open trades only */
   openTrades: () => client().get('/trades/open'),
-
-  /** Single trade detail */
   trade: (id) => client().get(`/trades/${id}`),
 
-  /** Daily P&L chart data */
+  // ---- Charts ----
   dailyPnl: (days = 30) => client().get('/pnl/daily', { params: { days } }),
 
-  /** Instruments list */
-  instruments: () => client().get('/instruments'),
-
-  /** Kill switch — state is 'on' or 'off' */
+  // ---- Kill switch ----
   killSwitch: (state) => client().post(`/killswitch/${state}`),
+
+  // ---- Instruments ----
+  instruments: () => client().get('/instruments'),
 };
