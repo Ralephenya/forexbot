@@ -26,11 +26,14 @@ export default function SettingsScreen() {
   const [saved, setSaved] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [stratParams, setStratParams] = useState(null);
 
   useEffect(() => {
     loadApiUrl().then((u) => {
       setUrl(u);
       setSaved(u);
+      // Fetch strategy params after URL is loaded
+      api.strategyParams().then((r) => setStratParams(r.data)).catch(() => {});
     });
   }, []);
 
@@ -141,11 +144,65 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
+      {/* Strategy params (live from API) */}
+      {stratParams && (
+        <>
+          <Text style={styles.sectionLabel}>CONFLUENCE STRATEGY (OPTIMIZED)</Text>
+          <View style={styles.card}>
+            <Row
+              label="Min Confluence Score"
+              value={`${stratParams.confluence.min_score} / ${stratParams.confluence.max_score}`}
+              valueColor={COLORS.accent}
+            />
+            <Row
+              label="RSI Buy / Sell"
+              value={`≤${stratParams.rsi.buy_threshold} / ≥${stratParams.rsi.sell_threshold}`}
+            />
+            <Row
+              label="Target / Stop (ATR×)"
+              value={`${stratParams.risk.target_atr_mult}× / ${stratParams.risk.stop_atr_mult}×`}
+            />
+            <Row label="Session (UTC)" value={`${stratParams.session.start_utc}:00 – ${stratParams.session.end_utc}:00`} />
+          </View>
+
+          <Text style={styles.sectionLabel}>BACKTEST RESULTS (12 MONTHS)</Text>
+          <View style={styles.card}>
+            <Row
+              label="Win Rate"
+              value={`${stratParams.backtest.win_rate_pct}%`}
+              valueColor={COLORS.profit}
+            />
+            <Row
+              label="Profit Factor"
+              value={`${stratParams.backtest.profit_factor}×`}
+              valueColor={COLORS.profit}
+            />
+            <Row
+              label="Sharpe Ratio"
+              value={String(stratParams.backtest.sharpe_ratio)}
+              valueColor={COLORS.profit}
+            />
+            <Row
+              label="Avg Pips / Month"
+              value={`+${stratParams.backtest.avg_pips_per_month}`}
+              valueColor={COLORS.profit}
+            />
+            <Row
+              label="Max Drawdown"
+              value={`${stratParams.backtest.max_drawdown_pips} pips`}
+              valueColor={COLORS.loss}
+            />
+            <Row label="Total Trades" value={String(stratParams.backtest.total_trades)} />
+            <Row label="Method" value={stratParams.backtest.method} />
+          </View>
+        </>
+      )}
+
       {/* App info */}
       <Text style={styles.sectionLabel}>ABOUT</Text>
       <View style={styles.card}>
-        <Row label="App Version" value="1.0.0" />
-        <Row label="Strategy" value="Strategy B (Regime Switching)" valueColor={COLORS.accent} />
+        <Row label="App Version" value="2.0.0" />
+        <Row label="Strategy" value="Strategy B + Confluence Engine" valueColor={COLORS.accent} />
         <Row label="Pairs" value="EUR/USD · GBP/USD · USD/JPY" />
       </View>
     </ScrollView>

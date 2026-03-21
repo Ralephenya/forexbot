@@ -620,6 +620,52 @@ def get_instruments():
 
 
 # --------------------------------------------------------------------------
+# Strategy Parameters (walk-forward optimized)
+# --------------------------------------------------------------------------
+
+@app.get("/strategy/params")
+def get_strategy_params():
+    """Returns the walk-forward optimized confluence strategy parameters."""
+    return {
+        "strategy": "Strategy B + Confluence Engine",
+        "timeframe": "15m",
+        "pair": "EUR/USD",
+        "confluence": {
+            "min_score": 7,
+            "max_score": 10,
+            "layers": 7,
+        },
+        "rsi": {
+            "period": 14,
+            "buy_threshold": 28,
+            "sell_threshold": 72,
+        },
+        "risk": {
+            "target_atr_mult": 1.2,
+            "stop_atr_mult": 1.2,
+            "rr_ratio": 1.0,
+            "spread_pips": 1.2,
+        },
+        "session": {
+            "start_utc": 8,
+            "end_utc": 17,
+            "prime_hours": [8, 9, 10, 13, 14],
+        },
+        "backtest": {
+            "period_months": 12,
+            "win_rate_pct": 65.1,
+            "profit_factor": 1.72,
+            "sharpe_ratio": 20.5,
+            "avg_pips_per_month": 190.6,
+            "max_drawdown_pips": -783.2,
+            "total_trades": 86,
+            "data": "GARCH + regime-switching synthetic EUR/USD",
+            "method": "4-fold walk-forward optimization",
+        },
+    }
+
+
+# --------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

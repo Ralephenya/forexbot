@@ -30,13 +30,17 @@ logging.basicConfig(level=logging.WARNING)  # suppress noise during backtest
 logger = logging.getLogger(__name__)
 
 # ── constants ─────────────────────────────────────────────────────────────────
-SPREAD_PIPS  = 1.2      # EUR/USD realistic spread
-PIP_VALUE    = 0.01     # $0.01 per pip at 0.01 lots (micro lot)
-TARGET_PIPS  = 10.0     # Base target (ATR-adaptive in real use)
-STOP_PIPS    = 7.0      # Base stop
+SPREAD_PIPS   = 1.2     # EUR/USD realistic spread
+PIP_VALUE     = 0.01    # $0.01 per pip at 0.01 lots (micro lot)
+TARGET_PIPS   = 10.0    # Fallback target (ATR-adaptive in real use)
+STOP_PIPS     = 7.0     # Fallback stop
 SESSION_START = 8       # London open UTC
 SESSION_END   = 17      # London close UTC
-MIN_SCORE     = 7       # Confluence threshold
+MIN_SCORE     = 7       # Confluence threshold (walk-forward optimized)
+RSI_BUY       = 28      # RSI buy threshold   (walk-forward optimized, was 30)
+RSI_SELL      = 72      # RSI sell threshold  (walk-forward optimized, was 70)
+TARGET_MULT   = 1.2     # ATR target multiplier (walk-forward optimized)
+STOP_MULT     = 1.2     # ATR stop multiplier   (walk-forward optimized)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

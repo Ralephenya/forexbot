@@ -68,4 +68,7 @@ export const api = {
 
   // ---- Instruments ----
   instruments: () => client().get('/instruments'),
+
+  // ---- Strategy params (walk-forward optimized confluence settings) ----
+  strategyParams: () => client().get('/strategy/params'),
 };

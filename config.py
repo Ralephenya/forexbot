@@ -22,21 +22,26 @@ RSI_PERIOD = 14  # RSI period
 # Strategy Parameters (VWAP + RSI Hybrid Mean Reversion)
 # BUY: Price below VWAP - 2.0 SD AND RSI ≤ 30 (both must agree)
 # SELL: Price above VWAP + 2.0 SD AND RSI ≥ 70 (both must agree)
-RSI_BUY_THRESHOLD = 30  # RSI buy confirmation
-RSI_SELL_THRESHOLD = 70  # RSI sell confirmation
+RSI_BUY_THRESHOLD = 28   # RSI buy confirmation  — walk-forward optimized (was 30)
+RSI_SELL_THRESHOLD = 72  # RSI sell confirmation — walk-forward optimized (was 70)
+
+# Confluence Engine (7-layer hedge-fund scoring gate)
+MIN_SCORE_TO_TRADE = 7   # Minimum score out of 10 to take a trade (A or A+)
+TARGET_ATR_MULT = 1.2    # Target  = ATR × 1.2 — walk-forward optimized
+STOP_ATR_MULT   = 1.2    # Stop    = ATR × 1.2 — gives 1:1 R:R on clean setups
 
 # Trading Hours (London session: 3 AM - 12 PM Eastern Time = 8 AM - 5 PM UTC)
 TRADING_START_HOUR = 8  # UTC
-TRADING_END_HOUR = 17  # UTC (5 PM UTC = 12 PM ET)
+TRADING_END_HOUR = 17   # UTC (5 PM UTC = 12 PM ET)
 
 # Position and Risk Management
 POSITION_SIZE_LOTS = 0.01  # Micro lot
 PIP_VALUE_PER_LOT = 1.0  # For EUR/USD, 1 pip = $1 per standard lot
 PIP_VALUE = PIP_VALUE_PER_LOT * POSITION_SIZE_LOTS  # $0.01 per pip for 0.01 lots
 
-TARGET_PIPS = 8  # Target: +8 pips
-STOP_LOSS_PIPS = 6  # Stop Loss: -6 pips
-SPREAD_COST_PIPS = 1.0  # Total spread cost per trade (EUR/USD typically tighter)
+TARGET_PIPS = 8  # Fallback fixed target (ATR-adaptive used when ATR available)
+STOP_LOSS_PIPS = 6  # Fallback fixed stop
+SPREAD_COST_PIPS = 1.2  # EUR/USD realistic spread
 # Exit also occurs when price returns to VWAP (mean reversion complete)
 
 # Results Paths
