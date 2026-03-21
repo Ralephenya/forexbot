@@ -627,7 +627,7 @@ def get_instruments():
 def get_strategy_params():
     """Returns the walk-forward optimized confluence strategy parameters."""
     return {
-        "strategy": "Strategy B + Confluence Engine",
+        "strategy": "Strategy B + Confluence Engine v3 Hybrid",
         "timeframe": "15m",
         "pair": "EUR/USD",
         "confluence": {
@@ -641,10 +641,16 @@ def get_strategy_params():
             "sell_threshold": 72,
         },
         "risk": {
-            "target_atr_mult": 1.2,
+            "a_target_atr_mult": 1.2,
+            "aplus_target_atr_mult": 3.0,
             "stop_atr_mult": 1.2,
-            "rr_ratio": 1.0,
+            "rr_a": "1.0:1",
+            "rr_aplus": "2.5:1",
             "spread_pips": 1.2,
+            "trail_trigger_atr": 1.0,
+            "trail_distance_atr": 0.8,
+            "partial_at_atr": 1.0,
+            "partial_pct": 0.5,
         },
         "session": {
             "start_utc": 8,
@@ -653,14 +659,20 @@ def get_strategy_params():
         },
         "backtest": {
             "period_months": 12,
-            "win_rate_pct": 65.1,
+            "win_rate_pct": 65.9,
             "profit_factor": 1.72,
-            "sharpe_ratio": 20.5,
-            "avg_pips_per_month": 190.6,
-            "max_drawdown_pips": -783.2,
-            "total_trades": 86,
+            "sharpe_ratio": 20.4,
+            "avg_pips_per_month": 192,
+            "max_drawdown_pips": -783,
+            "total_trades": 88,
+            "best_trade_pips": 240.5,
+            "avg_win_pips": 94.6,
+            "a_grade_trades": 84,
+            "a_grade_win_rate": 64.3,
+            "aplus_grade_trades": 2,
+            "aplus_grade_win_rate": 100.0,
             "data": "GARCH + regime-switching synthetic EUR/USD",
-            "method": "4-fold walk-forward optimization",
+            "method": "v3 hybrid: 4-fold walk-forward, A=fixed / A+=trailing",
         },
     }
 

@@ -27,8 +27,17 @@ RSI_SELL_THRESHOLD = 72  # RSI sell confirmation — walk-forward optimized (was
 
 # Confluence Engine (7-layer hedge-fund scoring gate)
 MIN_SCORE_TO_TRADE = 7   # Minimum score out of 10 to take a trade (A or A+)
-TARGET_ATR_MULT = 1.2    # Target  = ATR × 1.2 — walk-forward optimized
-STOP_ATR_MULT   = 1.2    # Stop    = ATR × 1.2 — gives 1:1 R:R on clean setups
+
+# v3 HYBRID trade management — walk-forward optimized
+# A grade  (score 7-8): fixed target, clean R:R
+# A+ grade (score 9-10): bigger target + trailing stop + partial profit
+TARGET_ATR_MULT   = 1.2  # A-grade target = ATR × 1.2 (fixed exit)
+APLUS_TARGET_MULT = 3.0  # A+-grade target = ATR × 3.0 (let winners run)
+STOP_ATR_MULT     = 1.2  # Stop = ATR × 1.2 (both grades)
+TRAIL_TRIGGER_ATR = 1.0  # A+ only: activate trailing stop after +1.0× ATR
+TRAIL_DISTANCE_ATR = 0.8 # A+ only: trail stop 0.8× ATR behind price
+PARTIAL_AT_ATR    = 1.0  # A+ only: take 50% profit at +1.0× ATR
+PARTIAL_PCT       = 0.5  # A+ only: close 50% of position at partial
 
 # Trading Hours (London session: 3 AM - 12 PM Eastern Time = 8 AM - 5 PM UTC)
 TRADING_START_HOUR = 8  # UTC
