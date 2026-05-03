@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────
+# ForexBot — Local Trading System Config
+# Copy this file and fill in your real values.
+# NEVER commit a file containing real passwords.
+# ─────────────────────────────────────────────────────────
+
+# ── MT5 Connection ────────────────────────────────────────
+mt5:
+  account: 12345678              # Your XM account number
+  password: "your_password_here" # Your MT5 password
+  server: "XM-Demo"              # e.g. XM-Demo, XM-Real3, XM-Real6
+  path: ""                       # Leave empty — MT5 auto-detects terminal path
+
+# ── Instrument & Timeframe ────────────────────────────────
+data:
+  symbol: EURUSD
+  timeframe: M15                 # M1 M5 M15 M30 H1 H4 D1
+
+# ── Risk Management ───────────────────────────────────────
+risk:
+  demo_mode: true                # TRUE = dry-run only. Set false only when ready.
+  position_size: 0.01            # Lots per trade (0.01 = micro lot = ~$0.10/pip)
+  max_daily_loss: 50.0           # Stop trading today if loss hits this in USD
+  max_open_positions: 1          # Max concurrent positions
+  max_positions: 1               # Alias used by RiskManager
+
+# ── Allowed Symbols (guardrails whitelist) ────────────────
+allowed_symbols:
+  - EURUSD
+  - GBPJPY
+  - USDJPY
+  - AUDUSD
+  - GBPUSD
+
+# ── Strategy B Parameters ─────────────────────────────────
+strategy:
+  rsi_period: 14
+  atr_period: 14
+  ema_period: 50
+  atr_median_window: 20
+
+  # Confluence thresholds (tune after backtesting)
+  rsi_oversold: 35
+  rsi_overbought: 65
+  min_confluence_score: 2        # Min signals required (out of 3) to take a trade
+
+# ── Shared Workspace (Cowork ↔ local executor) ────────────
+workspace:
+  path: "./workspace"            # On Windows: C:\jarvis-trader
+  poll_interval: 10              # Seconds between intent.json checks
+  heartbeat_stale_minutes: 5     # Minutes before Cowork considers daemon offline
+
+# ── Database ──────────────────────────────────────────────
+database:
+  path: "./logs/trades.db"
+
+# ── Logging ───────────────────────────────────────────────
+logging:
+  file: "./logs/trading.log"
+  level: INFO                    # DEBUG for more detail

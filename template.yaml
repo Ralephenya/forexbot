@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  ForexBot — fully serverless forex trading system.
+  Lambda + EventBridge + S3 + MetaAPI + API Gateway.
+
+# ── Parameters (set at deploy time) ─────────────────────────────────────────
+Parameters:
+  MetaApiToken:
+    Type: String
+    NoEcho: true
+    Description: MetaAPI token from https://app.metaapi.cloud
+  MetaApiAccountId:
+    Type: String
+    Description: Your MT5 account ID in MetaAPI
+  TradingSymbol:
+    Type: String
+    Default: EURUSD
+    Description: Primary instrument to trade
+  PositionSize:
+    Type: String
+    Default: "0.01"
+    Description: Lot size per trade (0.01 = micro lot)
+  MaxDailyLoss:
+    Type: String
+    Default: "5.0"
+    Description: Maximum daily loss in USD before bot stops
+  DemoMode:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Set to false for live trading
+
+# ── Shared environment variables ─────────────────────────────────────────────
+Globals:
+  Function:
+    Environment:
+      Variables:
+        METAAPI_TOKEN: !Ref MetaApiToken
+        METAAPI_ACCOUNT_ID: !Ref MetaApiAccountId
+        S3_BUCKET: !Ref TradeBucket
+        TRADING_SYMBOL: !Ref TradingSymbol
+        POSITION_SIZE: !Ref PositionSize
+        MAX_DAILY_LOSS: !Ref MaxDailyLoss
+        DEMO_MODE: !Ref DemoMode
+
+Resources:
+
+  # ── S3 bucket — stores all trade data as JSON ─────────────────────────────
+  TradeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "forexbot-trades-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled  # Enables recovery if a write goes wrong
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+
+  # ── API Lambda — handles all mobile app requests via API Gateway ──────────
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command: ["serverless.api_handler.handler"]
+      MemorySize: 512
+      Timeout: 30
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref TradeBucket
+        - S3WritePolicy:
+            BucketName: !Ref TradeBucket
+      Events:
+        ApiGateway:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        RootPath:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY
+    Metadata:
+      DockerTag: forexbot-lambda
+      DockerContext: .
+      Dockerfile: Dockerfile.lambda
+
+  # ── Bot Lambda — runs every 15 min via EventBridge ────────────────────────
+  BotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command: ["serverless.bot_handler.handler"]
+      MemorySize: 512
+      Timeout: 300  # 5 minutes max (signal gen + MetaAPI call)
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref TradeBucket
+        - S3WritePolicy:
+            BucketName: !Ref TradeBucket
+      Events:
+        EveryFifteenMinutes:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Name: ForexBotTradingCron
+            Description: Runs Strategy B every 15 minutes during market hours
+            Enabled: true
+    Metadata:
+      DockerTag: forexbot-lambda
+      DockerContext: .
+      Dockerfile: Dockerfile.lambda
+
+  # ── CloudWatch Log Groups (auto-delete after 14 days to save cost) ────────
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ApiFunction}"
+      RetentionInDays: 14
+
+  BotLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${BotFunction}"
+      RetentionInDays: 14
+
+# ── Outputs — shown after sam deploy ─────────────────────────────────────────
+Outputs:
+  ApiUrl:
+    Description: "API Gateway URL — paste this into the ForexBot mobile app Settings"
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  TradeBucketName:
+    Description: "S3 bucket storing all trade data"
+    Value: !Ref TradeBucket
+  BotFunctionArn:
+    Description: "Trading bot Lambda ARN"
+    Value: !GetAtt BotFunction.Arn

@@ -1,0 +1,47 @@
+version: "3.9"
+
+# ForexBot — runs 24/7 on AWS EC2 (or any Linux server)
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your values
+#   2. docker-compose up -d
+#   3. View logs: docker-compose logs -f
+#   4. Stop:      docker-compose down
+
+services:
+
+  # ── FastAPI backend ─────────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: forexbot-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./trading_system/data:/app/trading_system/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Trading bot ──────────────────────────────────────────────────────────────
+  bot:
+    build: .
+    container_name: forexbot-bot
+    restart: unless-stopped
+    command: python -m trading_system.main
+    env_file: .env
+    volumes:
+      - ./trading_system/data:/app/trading_system/data
+      - ./logs:/app/logs
+      - ./trading_system/config.yaml:/app/trading_system/config.yaml
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  data:
